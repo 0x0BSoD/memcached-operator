@@ -1,13 +1,17 @@
-apiVersion: example.com.example.com/v1alpha1
+apiVersion: cache.bsod.io/v1
 kind: Memcached
 metadata:
-  name: memcached-sample
+  name: airflow
 spec:
   size: 3
 
   containerPort: 11211
 
   verbose: Moar
+
+  image:
+    name: memcached
+    tag: 1.6.24
 
   resources:
     limits:

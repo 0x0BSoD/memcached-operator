@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	examplecomv1alpha1 "github.com/0x0BSoD/memcached-operator/api/v1alpha1"
+	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
 )
 
 const memcachedFinalizer = "example.com.example.com/finalizer"
@@ -40,9 +40,9 @@ type MemcachedReconciler struct {
 	Recorder record.EventRecorder
 }
 
-// +kubebuilder:rbac:groups=example.com.example.com,resources=memcacheds,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=example.com.example.com,resources=memcacheds/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=example.com.example.com,resources=memcacheds/finalizers,verbs=update
+// +kubebuilder:rbac:groups=cache.bsod.io,resources=memcacheds,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cache.bsod.io,resources=memcacheds/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cache.bsod.io,resources=memcacheds/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
@@ -50,7 +50,7 @@ type MemcachedReconciler struct {
 func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
-	memcached := &examplecomv1alpha1.Memcached{}
+	memcached := &cachev1.Memcached{}
 	err := r.Get(ctx, req.NamespacedName, memcached)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -205,7 +205,7 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 func (r *MemcachedReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&examplecomv1alpha1.Memcached{}).
+		For(&cachev1.Memcached{}).
 		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }

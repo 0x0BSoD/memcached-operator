@@ -1,3 +1,19 @@
+/*
+Copyright 2024.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
@@ -17,7 +33,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	examplecomv1alpha1 "github.com/0x0BSoD/memcached-operator/api/v1alpha1"
+	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
 	"github.com/0x0BSoD/memcached-operator/internal/controller"
 	// +kubebuilder:scaffold:imports
 )
@@ -29,7 +45,8 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(examplecomv1alpha1.AddToScheme(scheme))
+
+	utilruntime.Must(cachev1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -81,7 +98,7 @@ func main() {
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "ec37799d.example.com",
+		LeaderElectionID:       "ec37799d.bsod.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -97,7 +114,7 @@ func main() {
 		os.Exit(1)
 	}
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&examplecomv1alpha1.Memcached{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&cachev1.Memcached{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Memcached")
 			os.Exit(1)
 		}

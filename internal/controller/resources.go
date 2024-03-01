@@ -3,20 +3,21 @@ package controller
 import (
 	"fmt"
 
-	memcached "github.com/0x0BSoD/memcached-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 
 	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
 )
 
 func generateResourceRequirements(
-	resources *memcached.Resources,
-	defaultResources memcached.Resources,
+	resources *cachev1.Resources,
+	defaultResources cachev1.Resources,
 	containerName string) (*v1.ResourceRequirements, error) {
 	var err error
-	specRequests := memcached.ResourceDescription{}
-	specLimits := memcached.ResourceDescription{}
+	specRequests := cachev1.ResourceDescription{}
+	specLimits := cachev1.ResourceDescription{}
 	result := v1.ResourceRequirements{}
 
 	if resources != nil {
@@ -58,7 +59,7 @@ func matchLimitsWithRequestsIfSmaller(resources *v1.ResourceRequirements, contai
 	}
 }
 
-func fillResourceList(spec memcached.ResourceDescription, defaults memcached.ResourceDescription) (v1.ResourceList, error) {
+func fillResourceList(spec cachev1.ResourceDescription, defaults cachev1.ResourceDescription) (v1.ResourceList, error) {
 	var err error
 	requests := v1.ResourceList{}
 	emptyResourceExamples := []string{"", "0", "null"}
@@ -93,20 +94,20 @@ func fillResourceList(spec memcached.ResourceDescription, defaults memcached.Res
 	return requests, nil
 }
 
-func makeDefaultResources() memcached.Resources {
+func makeDefaultResources() cachev1.Resources {
 	cpu := "100m"
 	mem := "256Mi"
 
-	defaultRequests := memcached.ResourceDescription{
+	defaultRequests := cachev1.ResourceDescription{
 		CPU:    &cpu,
 		Memory: &mem,
 	}
-	defaultLimits := memcached.ResourceDescription{
+	defaultLimits := cachev1.ResourceDescription{
 		CPU:    &cpu,
 		Memory: &mem,
 	}
 
-	return memcached.Resources{
+	return cachev1.Resources{
 		ResourceRequests: defaultRequests,
 		ResourceLimits:   defaultLimits,
 	}

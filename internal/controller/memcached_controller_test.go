@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	examplecomv1alpha1 "github.com/0x0BSoD/memcached-operator/api/v1alpha1"
+	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
 )
 
 var _ = Describe("Memcached controller", func() {
@@ -53,7 +53,7 @@ var _ = Describe("Memcached controller", func() {
 			Name:      MemcachedName,
 			Namespace: MemcachedName,
 		}
-		memcached := &examplecomv1alpha1.Memcached{}
+		memcached := &cachev1.Memcached{}
 
 		BeforeEach(func() {
 			By("Creating the Namespace to perform the tests")
@@ -69,12 +69,12 @@ var _ = Describe("Memcached controller", func() {
 			if err != nil && errors.IsNotFound(err) {
 				// Let's mock our custom resource at the same way that we would
 				// apply on the cluster the manifest under config/samples
-				memcached := &examplecomv1alpha1.Memcached{
+				memcached := &cachev1.Memcached{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      MemcachedName,
 						Namespace: namespace.Name,
 					},
-					Spec: examplecomv1alpha1.MemcachedSpec{
+					Spec: cachev1.MemcachedSpec{
 						Size:          1,
 						ContainerPort: 11211,
 					},
@@ -87,7 +87,7 @@ var _ = Describe("Memcached controller", func() {
 
 		AfterEach(func() {
 			By("removing the custom resource for the Kind Memcached")
-			found := &examplecomv1alpha1.Memcached{}
+			found := &cachev1.Memcached{}
 			err := k8sClient.Get(ctx, typeNamespaceName, found)
 			Expect(err).To(Not(HaveOccurred()))
 
@@ -108,7 +108,7 @@ var _ = Describe("Memcached controller", func() {
 		It("should successfully reconcile a custom resource for Memcached", func() {
 			By("Checking if the custom resource was successfully created")
 			Eventually(func() error {
-				found := &examplecomv1alpha1.Memcached{}
+				found := &cachev1.Memcached{}
 				return k8sClient.Get(ctx, typeNamespaceName, found)
 			}, time.Minute, time.Second).Should(Succeed())
 

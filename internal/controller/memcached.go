@@ -12,10 +12,10 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	v1alpha1 "github.com/0x0BSoD/memcached-operator/api/v1alpha1"
+	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
 )
 
-func (r *MemcachedReconciler) doFinalizerOperationsForMemcached(cr *v1alpha1.Memcached) {
+func (r *MemcachedReconciler) doFinalizerOperationsForMemcached(cr *cachev1.Memcached) {
 	r.Recorder.Event(cr, "Warning", "Deleting",
 		fmt.Sprintf("Custom Resource %s is being deleted from the namespace %s",
 			cr.Name,
@@ -31,7 +31,7 @@ func labelsForMemcached(name, image string) map[string]string {
 	}
 }
 
-func imageForMemcached(memcachedImage v1alpha1.MemcachedImage) (string, error) {
+func imageForMemcached(memcachedImage cachev1.MemcachedImage) (string, error) {
 	var (
 		found       bool
 		image       string
@@ -53,20 +53,20 @@ func imageForMemcached(memcachedImage v1alpha1.MemcachedImage) (string, error) {
 	return image, nil
 }
 
-func buildCommand(verboseLevel v1alpha1.VerboseLevel, memLimitKb int64) []string {
+func buildCommand(verboseLevel cachev1.VerboseLevel, memLimitKb int64) []string {
 	cmd := []string{"memcached", "-o", "modern"}
 
 	memLimit := (memLimitKb / 1024 / 1024) - 128
 	cmd = append(cmd, fmt.Sprintf("--memory-limit=%v", memLimit))
 
 	switch verboseLevel {
-	case v1alpha1.Enable:
+	case cachev1.Enable:
 		cmd = append(cmd, "-v")
-	case v1alpha1.Moar:
+	case cachev1.Moar:
 		cmd = append(cmd, "-vv")
-	case v1alpha1.Extreme:
+	case cachev1.Extreme:
 		cmd = append(cmd, "-vvv")
-	case v1alpha1.Disable:
+	case cachev1.Disable:
 		fmt.Print("Logging disabled")
 	}
 
@@ -74,7 +74,7 @@ func buildCommand(verboseLevel v1alpha1.VerboseLevel, memLimitKb int64) []string
 }
 
 func (r *MemcachedReconciler) deploymentForMemcached(
-	memcached *v1alpha1.Memcached) (*appsv1.Deployment, error) {
+	memcached *cachev1.Memcached) (*appsv1.Deployment, error) {
 	replicas := memcached.Spec.Size
 	resources, err := generateResourceRequirements(memcached.Spec.Resources, makeDefaultResources(), "memcached")
 	if err != nil {

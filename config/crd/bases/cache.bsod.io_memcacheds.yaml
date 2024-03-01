@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: memcacheds.example.com.example.com
+  name: memcacheds.cache.bsod.io
 spec:
-  group: example.com.example.com
+  group: cache.bsod.io
   names:
     kind: Memcached
     listKind: MemcachedList
@@ -14,7 +14,7 @@ spec:
     singular: memcached
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - name: v1
     schema:
       openAPIV3Schema:
         description: Memcached is the Schema for the memcacheds API

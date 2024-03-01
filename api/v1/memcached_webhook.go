@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1
 
 import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -91,7 +91,7 @@ func (r *Memcached) validateMemcached() error {
 	}
 
 	return apierrors.NewInvalid(
-		schema.GroupKind{Group: "example.com.example.com", Kind: "Memcached"},
+		schema.GroupKind{Group: "cache.bsod.io", Kind: "Memcached"},
 		r.Name, allErrs)
 
 }
