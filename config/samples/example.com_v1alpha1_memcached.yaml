@@ -1,0 +1,18 @@
+apiVersion: example.com.example.com/v1alpha1
+kind: Memcached
+metadata:
+  name: memcached-sample
+spec:
+  size: 3
+
+  containerPort: 11211
+
+  verbose: Moar
+
+  resources:
+    limits:
+      cpu: 250m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
