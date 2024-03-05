@@ -15,6 +15,10 @@ import (
 	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
 )
 
+var (
+	instanceLog = ctrl.Log.WithName("instance")
+)
+
 func (r *MemcachedReconciler) doFinalizerOperationsForMemcached(cr *cachev1.Memcached) {
 	r.Recorder.Event(cr, "Warning", "Deleting",
 		fmt.Sprintf("Custom Resource %s is being deleted from the namespace %s",
@@ -31,7 +35,7 @@ func labelsForMemcached(name, image string) map[string]string {
 	}
 }
 
-func imageForMemcached(memcachedImage cachev1.MemcachedImage) (string, error) {
+func imageForMemcached(memcachedImage cachev1.DockerImage) (string, error) {
 	var (
 		found       bool
 		image       string
@@ -67,7 +71,7 @@ func buildCommand(verboseLevel cachev1.VerboseLevel, memLimitKb int64) []string 
 	case cachev1.Extreme:
 		cmd = append(cmd, "-vvv")
 	case cachev1.Disable:
-		fmt.Print("Logging disabled")
+		instanceLog.Info("a memcached instance logging is disabled")
 	}
 
 	return cmd

@@ -1,7 +1,8 @@
+---
 apiVersion: cache.bsod.io/v1
 kind: Memcached
 metadata:
-  name: airflow
+  name: memcached-sample
 spec:
   size: 3
 
