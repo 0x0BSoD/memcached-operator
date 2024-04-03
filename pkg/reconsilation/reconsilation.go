@@ -31,8 +31,8 @@ type ReconciliationContext struct {
 	// see: golang/go#22602
 	Ctx context.Context
 
-	clusterPods          []*corev1.Pod
-	memcachedDeployments map[string]*appsv1.Deployment
+	memcachedPods       []*corev1.Pod
+	memcachedDeployment *appsv1.Deployment
 }
 
 func CreateReconciliationContext(
@@ -50,7 +50,6 @@ func CreateReconciliationContext(
 	rc.Recorder = &events.LoggingEventRecorder{EventRecorder: rec, ReqLogger: reqLogger}
 	rc.ReqLogger = reqLogger
 	rc.Ctx = ctx
-	rc.memcachedDeployments = make(map[string]*appsv1.Deployment)
 
 	rc.ReqLogger = rc.ReqLogger.
 		WithValues("namespace", req.Namespace)

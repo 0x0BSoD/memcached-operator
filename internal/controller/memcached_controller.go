@@ -49,8 +49,8 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	logger := r.Log.
 		WithValues("memcached", req.NamespacedName).
-		WithValues("requestNamespace", req.Namespace).
-		WithValues("requestName", req.Name).
+		// WithValues("requestNamespace", req.Namespace).
+		// WithValues("requestName", req.Name).
 		// loopID is used to tie all events together that are spawned by the same reconciliation loop
 		WithValues("loopID", uuid.New().String())
 
@@ -62,7 +62,7 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			"duration", reconcileDuration)
 	}()
 
-	logger.Info("======== handler::Reconcile has been called")
+	logger.Info("======== [handler] Reconcile has been called")
 
 	rc, err := reconsilation.CreateReconciliationContext(ctx, &req, r.Client, r.Recorder, r.Scheme)
 	if err != nil {

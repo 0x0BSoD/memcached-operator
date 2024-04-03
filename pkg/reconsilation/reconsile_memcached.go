@@ -145,18 +145,23 @@ func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, e
 
 func (rc *ReconciliationContext) CheckMemcachedDeploymentScaling() ReconcileResult {
 	logger := rc.ReqLogger
-	logger.Info("[reconcile_racks] CheckMemcachedDeploymentScaling")
 	m := rc.Memcached
-	dep := rc.memcachedDeployments[fmt.Sprintf("%s-%s", rc.Memcached.Name, rc.Memcached.Namespace)]
+	dep := rc.memcachedDeployment
+
+	fmt.Println("=================================")
+	fmt.Println(dep)
+	fmt.Println("=================================")
 
 	if dep == nil {
 		return Continue()
 	}
 
+	logger.Info("[reconcile_memcached] CheckMemcachedDeploymentScaling")
+
 	desiredReplicas := rc.Memcached.Spec.Size
 	currentReplicas := *dep.Spec.Replicas
 
-	if currentReplicas < desiredReplicas {
+	if currentReplicas != desiredReplicas {
 		mPatch := client.MergeFrom(m.DeepCopy())
 
 		err := rc.Client.Status().Patch(rc.Ctx, m, mPatch)
@@ -217,7 +222,8 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentCreation() ReconcileRes
 		if err := rc.Client.Create(rc.Ctx, dep); err != nil {
 			return Error(err)
 		}
-		rc.memcachedDeployments[fmt.Sprintf("%s-%s", rc.Memcached.Name, rc.Memcached.Namespace)] = dep
+
+		rc.memcachedDeployment = dep
 
 		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.CreatedResource,
 			"Created Deployment %s", dep.Name)
@@ -229,6 +235,8 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentCreation() ReconcileRes
 			"Memcached", rc.Memcached.Name)
 		return Error(err)
 	}
+
+	rc.memcachedDeployment = currentDeployment
 
 	return Continue()
 }
