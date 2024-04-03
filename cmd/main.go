@@ -70,6 +70,7 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	opts := zap.Options{
 		Development: true,
+		Level:       zapcore.DebugLevel,
 		TimeEncoder: zapcore.ISO8601TimeEncoder,
 	}
 	opts.BindFlags(flag.CommandLine)

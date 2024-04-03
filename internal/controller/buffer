@@ -1,0 +1,247 @@
+
+
+	// If status unknown
+	if memcached.Status.Conditions == nil || len(memcached.Status.Conditions) == 0 {
+		log.Info("Status Undefined, starting reconsilation")
+		meta.SetStatusCondition(&memcached.Status.Conditions, metav1.Condition{Type: typeAvailableMemcached, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"})
+		if err = r.Status().Update(ctx, memcached); err != nil {
+			log.Error(err, "Failed to update Memcached status")
+			return ctrl.Result{}, err
+		}
+
+		if err := r.Get(ctx, req.NamespacedName, memcached); err != nil {
+			log.Error(err, "Failed to re-fetch memcached")
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Try to add finalizer
+	if !controllerutil.ContainsFinalizer(memcached, memcachedFinalizer) {
+		log.Info("Adding Finalizer for Memcached")
+		if ok := controllerutil.AddFinalizer(memcached, memcachedFinalizer); !ok {
+			log.Error(err, "Failed to add finalizer into the custom resource")
+			return ctrl.Result{Requeue: true}, nil
+		}
+
+		if err := r.Update(ctx, memcached); err != nil {
+			fmt.Println("AddFinalizer =========================")
+			fmt.Println(err)
+			fmt.Println("=========================")
+			log.Error(err, "Failed to update custom resource to add finalizer")
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Deletion process
+	isMemcachedMarkedToBeDeleted := memcached.GetDeletionTimestamp()
+	if isMemcachedMarkedToBeDeleted != nil {
+		if controllerutil.ContainsFinalizer(memcached, memcachedFinalizer) {
+			log.Info("Performing Finalizer Operations for Memcached before delete CR")
+
+			meta.SetStatusCondition(&memcached.Status.Conditions, metav1.Condition{Type: typeDegradedMemcached,
+				Status: metav1.ConditionUnknown, Reason: "Finalizing",
+				Message: fmt.Sprintf("Performing finalizer operations for the custom resource: %s ", memcached.Name)})
+
+			if err := r.Status().Update(ctx, memcached); err != nil {
+				fmt.Println("Deletion Finalizer starting =========================")
+				fmt.Println(err)
+				fmt.Println("=========================")
+				log.Error(err, "Failed to update Memcached status")
+				return ctrl.Result{}, err
+			}
+
+			r.doFinalizerOperationsForMemcached(memcached)
+
+			if err := r.Get(ctx, req.NamespacedName, memcached); err != nil {
+				log.Error(err, "Failed to re-fetch memcached")
+				return ctrl.Result{}, err
+			}
+
+			meta.SetStatusCondition(&memcached.Status.Conditions, metav1.Condition{Type: typeDegradedMemcached,
+				Status: metav1.ConditionTrue, Reason: "Finalizing",
+				Message: fmt.Sprintf("Finalizer operations for custom resource %s name were successfully accomplished", memcached.Name)})
+
+			if err := r.Status().Update(ctx, memcached); err != nil {
+				fmt.Println("Finalizer run done =========================")
+				fmt.Println(err)
+				fmt.Println("=========================")
+				log.Error(err, "Failed to update Memcached status")
+				return ctrl.Result{}, err
+			}
+
+			log.Info("Removing Finalizer for Memcached after successfully perform the operations")
+			if ok := controllerutil.RemoveFinalizer(memcached, memcachedFinalizer); !ok {
+				log.Error(err, "Failed to remove finalizer for Memcached")
+				return ctrl.Result{Requeue: true}, nil
+			}
+
+			if err := r.Update(ctx, memcached); err != nil {
+				fmt.Println("Deletion RemoveFinalizer =========================")
+				fmt.Println(err)
+				fmt.Println("=========================")
+				log.Error(err, "Failed to remove finalizer for Memcached")
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// Check and Deploy if needed
+	foundMemcached := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{Name: memcached.Name, Namespace: memcached.Namespace}, foundMemcached)
+	if err != nil && apierrors.IsNotFound(err) {
+		dep, err := r.deploymentForMemcached(memcached)
+		if err != nil {
+			log.Error(err, "Failed to define new Deployment resource for Memcached")
+
+			meta.SetStatusCondition(&memcached.Status.Conditions, metav1.Condition{Type: typeAvailableMemcached,
+				Status: metav1.ConditionFalse, Reason: "Reconciling",
+				Message: fmt.Sprintf("Failed to create Deployment for the custom resource (%s): (%s)", memcached.Name, err)})
+
+			if err := r.Status().Update(ctx, memcached); err != nil {
+				fmt.Println("Create Deployment =========================")
+				fmt.Println(err)
+				fmt.Println("=========================")
+				log.Error(err, "Failed to update Memcached status")
+				return ctrl.Result{}, err
+			}
+
+			return ctrl.Result{}, err
+		}
+
+		log.Info("Creating a new Deployment",
+			"Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+		if err = r.Create(ctx, dep); err != nil {
+			log.Error(err, "Failed to create new Deployment",
+				"Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{RequeueAfter: time.Minute}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get Deployment")
+		return ctrl.Result{}, err
+	} else {
+		if memcached.Spec.Proxy.Enabled {
+			foundProxy := &appsv1.Deployment{}
+			nameProxy := fmt.Sprintf("%s-proxy", memcached.Name)
+			err = r.Get(ctx, types.NamespacedName{Name: nameProxy, Namespace: memcached.Namespace}, foundProxy)
+			if err != nil && apierrors.IsNotFound(err) {
+				selector := foundMemcached.Spec.Selector
+				matchingLabels := client.MatchingLabels{}
+				for k, v := range selector.MatchLabels {
+					matchingLabels[k] = v
+				}
+				listOpts := []client.ListOption{
+					client.InNamespace(memcached.Namespace),
+					matchingLabels,
+				}
+				foundPods := &corev1.PodList{}
+				err = r.List(ctx, foundPods, listOpts...)
+				if err != nil {
+					log.Error(err, "Failed to list Memcached pods")
+					return ctrl.Result{}, err
+				}
+				cm, err := r.ConfigMapForProxy(memcached, foundPods.Items)
+				if err != nil {
+					log.Error(err, "Failed to define new ConfigMap resource for Memcached Proxy")
+
+					meta.SetStatusCondition(&memcached.Status.Conditions, metav1.Condition{Type: typeAvailableMemcachedProxy,
+						Status: metav1.ConditionFalse, Reason: "Reconciling",
+						Message: fmt.Sprintf("Failed to create ConfigMap for the custom resource (%s): (%s)", memcached.Name, err)})
+
+					if err := r.Status().Update(ctx, memcached); err != nil {
+						log.Error(err, "Failed to update Memcached status")
+						return ctrl.Result{}, err
+					}
+
+					return ctrl.Result{}, err
+				}
+
+				dep, err := r.deploymentForProxy(memcached)
+				if err != nil {
+					log.Error(err, "Failed to define new Deployment resource for Memcached Proxy")
+
+					meta.SetStatusCondition(&memcached.Status.Conditions, metav1.Condition{Type: typeAvailableMemcachedProxy,
+						Status: metav1.ConditionFalse, Reason: "Reconciling",
+						Message: fmt.Sprintf("Failed to create Deployment for the custom resource (%s): (%s)", memcached.Name, err)})
+
+					if err := r.Status().Update(ctx, memcached); err != nil {
+						log.Error(err, "Failed to update Memcached status")
+						return ctrl.Result{}, err
+					}
+
+					return ctrl.Result{}, err
+				}
+
+				log.Info("Creating a new ConfigMap",
+					"Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+				if err = r.Create(ctx, cm); err != nil {
+
+					fmt.Println("Create ConfigMap =========================")
+					fmt.Println(cm)
+					fmt.Println("---------------")
+					fmt.Println(err)
+					fmt.Println("=========================")
+
+					log.Error(err, "Failed to create new ConfigMap",
+						"Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+					return ctrl.Result{}, err
+				}
+
+				fmt.Println("Create ConfigMap =========================")
+				fmt.Println(cm)
+				fmt.Println("=========================")
+
+				log.Info("Creating a new Deployment",
+					"Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+				if err = r.Create(ctx, dep); err != nil {
+					log.Error(err, "Failed to create new Deployment",
+						"Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+					return ctrl.Result{}, err
+				}
+			}
+		}
+	}
+
+	// Num replicas is changed
+	size := memcached.Spec.Size
+	if *foundMemcached.Spec.Replicas != size {
+		foundMemcached.Spec.Replicas = &size
+		if err = r.Update(ctx, foundMemcached); err != nil {
+			log.Error(err, "Failed to update Deployment",
+				"Deployment.Namespace", foundMemcached.Namespace, "Deployment.Name", foundMemcached.Name)
+
+			if err := r.Get(ctx, req.NamespacedName, memcached); err != nil {
+				log.Error(err, "Failed to re-fetch memcached")
+				return ctrl.Result{}, err
+			}
+
+			meta.SetStatusCondition(&memcached.Status.Conditions, metav1.Condition{Type: typeAvailableMemcached,
+				Status: metav1.ConditionFalse, Reason: "Resizing",
+				Message: fmt.Sprintf("Failed to update the size for the custom resource (%s): (%s)", memcached.Name, err)})
+
+			if err := r.Status().Update(ctx, memcached); err != nil {
+				fmt.Println("Replicas Update =========================")
+				fmt.Println(err)
+				fmt.Println("=========================")
+				log.Error(err, "Failed to update Memcached status")
+				return ctrl.Result{}, err
+			}
+
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// Set Status
+	meta.SetStatusCondition(&memcached.Status.Conditions, metav1.Condition{Type: typeAvailableMemcached,
+		Status: metav1.ConditionTrue, Reason: "Reconciling",
+		Message: fmt.Sprintf("Deployment for custom resource (%s) with %d replicas created successfully", memcached.Name, size)})
+
+	if err := r.Status().Update(ctx, memcached); err != nil {
+		log.Error(err, "Failed to update Memcached status")
+		return ctrl.Result{}, err
+	}
+

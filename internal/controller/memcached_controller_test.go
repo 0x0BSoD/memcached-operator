@@ -134,9 +134,9 @@ var _ = Describe("Memcached controller", func() {
 				if memcached.Status.Conditions != nil &&
 					len(memcached.Status.Conditions) != 0 {
 					latestStatusCondition := memcached.Status.Conditions[len(memcached.Status.Conditions)-1]
-					expectedLatestStatusCondition := metav1.Condition{
-						Type:   typeAvailableMemcached,
-						Status: metav1.ConditionTrue,
+					expectedLatestStatusCondition := cachev1.MemcachedCondition{
+						Type:   cachev1.MemcachedReady,
+						Status: corev1.ConditionTrue,
 						Reason: "Reconciling",
 						Message: fmt.Sprintf(
 							"Deployment for custom resource (%s) with %d replicas created successfully",

@@ -18,7 +18,6 @@ package v1
 
 import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -47,9 +46,9 @@ var _ webhook.Defaulter = &Memcached{}
 func (r *Memcached) Default() {
 	memcachedlog.Info("default", "name", r.Name)
 
-	if r.Spec.Verbose == "" {
-		r.Spec.Verbose = Enable
-	}
+	// if r.Spec.Verbose == "" {
+	// 	r.Spec.Verbose = Enable
+	// }
 }
 
 // +kubebuilder:webhook:path=/validate-example-com-example-com-v1alpha1-memcached,mutating=false,failurePolicy=fail,sideEffects=None,groups=example.com.example.com,resources=memcacheds,verbs=create;update,versions=v1alpha1,name=vmemcached.kb.io,admissionReviewVersions=v1
@@ -97,12 +96,12 @@ func (r *Memcached) validateMemcached() error {
 }
 
 func (r *Memcached) validateMemcachedMemoryLimit() *field.Error {
-	if *r.Spec.Resources.ResourceLimits.Memory != "" {
-		quantity := resource.MustParse(*r.Spec.ResourceLimits.Memory)
-		memLimitKb := quantity.Value()
-		if memLimitKb < int64(268435456) {
-			return field.Invalid(field.NewPath("resources").Child("limits").Child("memory"), r.Spec.ResourceLimits.Memory, "must be more or equal to 256Mi")
-		}
-	}
+	// if *r.Spec.Resources.ResourceLimits.Memory != "" {
+	// 	quantity := resource.MustParse(*r.Spec.ResourceLimits.Memory)
+	// 	memLimitKb := quantity.Value()
+	// 	if memLimitKb < int64(268435456) {
+	// 		return field.Invalid(field.NewPath("resources").Child("limits").Child("memory"), r.Spec.ResourceLimits.Memory, "must be more or equal to 256Mi")
+	// 	}
+	// }
 	return nil
 }

@@ -10,6 +10,10 @@ spec:
 
   verbose: Moar
 
+  proxy:
+    enabled: true
+    replicas: 1
+
   image:
     name: memcached
     tag: 1.6.24
