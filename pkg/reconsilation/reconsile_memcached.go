@@ -148,10 +148,6 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentScaling() ReconcileResu
 	m := rc.Memcached
 	dep := rc.memcachedDeployment
 
-	fmt.Println("=================================")
-	fmt.Println(dep)
-	fmt.Println("=================================")
-
 	if dep == nil {
 		return Continue()
 	}
@@ -177,8 +173,13 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentScaling() ReconcileResu
 			"desiredReplicas", desiredReplicas,
 		)
 
-		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.ScalingUp,
-			"Scaling up %s", m.Name)
+		if currentReplicas > desiredReplicas {
+			rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.ScalingDown,
+				"Scaling down %s", m.Name)
+		} else if currentReplicas < desiredReplicas {
+			rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.ScalingUp,
+				"Scaling up %s", m.Name)
+		}
 
 		if err := setOperatorProgressStatus(rc, cachev1.ProgressUpdating); err != nil {
 			return Error(err)

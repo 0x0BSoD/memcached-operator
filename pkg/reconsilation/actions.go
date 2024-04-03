@@ -20,12 +20,7 @@ func (rc *ReconciliationContext) ProcessReconcile() (reconcile.Result, error) {
 	if err != nil {
 		logger.Error(err, "error listing all pods")
 	}
-
 	rc.memcachedPods = PodPtrsFromPodList(podList)
-
-	if err != nil {
-		logger.Error(err, "error getting deployment")
-	}
 
 	if recResult := rc.CheckMemcachedDeploymentCreation(); recResult.Completed() {
 		return recResult.Output()
