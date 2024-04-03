@@ -12,8 +12,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
 	"github.com/0x0BSoD/memcached-operator/pkg/reconsilation"
@@ -89,12 +91,32 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return res, err
 }
 
+func hasLabel(labels map[string]string, lablel string) bool {
+	v, ok := labels[lablel]
+	return ok && v == lablel
+}
+
 func (r *MemcachedReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
-	// TODO: Add predicate
+	memcachedPredicate := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return hasLabel(e.Object.GetLabels(), "app.kubernetes.io/managed-by")
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return hasLabel(e.Object.GetLabels(), "app.kubernetes.io/managed-by")
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return hasLabel(e.ObjectOld.GetLabels(), "app.kubernetes.io/managed-by") || hasLabel(e.ObjectNew.GetLabels(), "app.kubernetes.io/managed-by")
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return hasLabel(e.Object.GetLabels(), "app.kubernetes.io/managed-by")
+		},
+	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cachev1.Memcached{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&appsv1.Deployment{}).
+		Owns(&appsv1.Deployment{}, builder.WithPredicates(memcachedPredicate)).
 		Complete(r)
 }
+
+var _ reconcile.Reconciler = &MemcachedReconciler{}

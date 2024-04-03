@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
+	"github.com/0x0BSoD/memcached-operator/pkg/events"
 )
 
 func imageForMemcached(memcachedImage cachev1.DockerImage) (string, error) {
@@ -171,7 +172,7 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentScaling() ReconcileResu
 			"desiredReplicas", desiredReplicas,
 		)
 
-		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, ScalingUp,
+		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.ScalingUp,
 			"Scaling up %s", m.Name)
 
 		if err := setOperatorProgressStatus(rc, cachev1.ProgressUpdating); err != nil {
@@ -218,7 +219,7 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentCreation() ReconcileRes
 		}
 		rc.memcachedDeployments[fmt.Sprintf("%s-%s", rc.Memcached.Name, rc.Memcached.Namespace)] = dep
 
-		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, CreatedResource,
+		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.CreatedResource,
 			"Created Deployment %s", dep.Name)
 		return Continue()
 	} else if err != nil {

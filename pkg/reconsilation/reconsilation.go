@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
+	"github.com/0x0BSoD/memcached-operator/pkg/events"
 )
 
 // ReconciliationContext contains all of the input necessary to calculate a list of ReconciliationActions
@@ -46,7 +47,7 @@ func CreateReconciliationContext(
 	rc.Request = req
 	rc.Client = cli
 	rc.Scheme = scheme
-	rc.Recorder = &LoggingEventRecorder{EventRecorder: rec, ReqLogger: reqLogger}
+	rc.Recorder = &events.LoggingEventRecorder{EventRecorder: rec, ReqLogger: reqLogger}
 	rc.ReqLogger = reqLogger
 	rc.Ctx = ctx
 	rc.memcachedDeployments = make(map[string]*appsv1.Deployment)

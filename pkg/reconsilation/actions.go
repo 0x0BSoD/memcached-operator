@@ -1,11 +1,12 @@
 package reconsilation
 
 import (
-	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
-
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	cachev1 "github.com/0x0BSoD/memcached-operator/api/v1"
+	"github.com/0x0BSoD/memcached-operator/pkg/events"
 )
 
 func (rc *ReconciliationContext) ProcessReconcile() (reconcile.Result, error) {
@@ -60,7 +61,7 @@ func (rc *ReconciliationContext) ProcessDeletion() ReconcileResult {
 
 	if rc.Memcached.Status.GetConditionStatus(cachev1.MemcachedScalingDown) == corev1.ConditionTrue {
 		// ScalingDown is still happening
-		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, Decommissioning, "Memcached is decommissioning")
+		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.Decommissioning, "Memcached is decommissioning")
 		rc.ReqLogger.V(1).Info("Waiting for the decommission to complete first, before deleting")
 		return Continue()
 	}

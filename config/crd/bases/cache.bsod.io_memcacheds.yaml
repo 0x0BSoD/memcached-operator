@@ -155,7 +155,7 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
-              pperatorProgress:
+              operatorProgress:
                 description: Last known progress state
                 type: string
             type: object
