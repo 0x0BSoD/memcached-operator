@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: zlodey23/mc-operator
-  newTag: 1.1.21
+  newTag: 1.1.22
