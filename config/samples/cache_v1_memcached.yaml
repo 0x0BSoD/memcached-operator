@@ -4,11 +4,15 @@ kind: Memcached
 metadata:
   name: memcached-sample
 spec:
-  size: 3
+  size: 1
 
   containerPort: 11211
 
   verbose: Moar
+
+  proxy:
+    enabled: true
+    replicas: 1
 
   image:
     name: memcached
