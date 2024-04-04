@@ -42,12 +42,46 @@ func imageForMemcached(memcachedImage cachev1.DockerImage) (string, error) {
 }
 
 func labelsForMemcached(name, image string) map[string]string {
-	return map[string]string{"app.kubernetes.io/name": "Memcached",
+	return map[string]string{
+		"app.kubernetes.io/name":       "Memcached",
 		"app.kubernetes.io/instance":   name,
 		"app.kubernetes.io/version":    strings.Split(image, ":")[1],
 		"app.kubernetes.io/part-of":    "memcached-operator",
 		"app.kubernetes.io/created-by": "controller-manager",
 	}
+}
+
+func (rc *ReconciliationContext) serviceForMemcached() (*corev1.Service, error) {
+	rc.ReqLogger.Info("[reconcile_memcached] serviceForMemcached")
+
+	image, err := imageForMemcached(rc.Memcached.Spec.Image)
+	if err != nil {
+		return nil, err
+	}
+	ls := labelsForMemcached(rc.Memcached.Name, image)
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rc.Memcached.Name,
+			Namespace: rc.Memcached.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name: "memcached",
+					Port: rc.Memcached.Spec.ContainerPort,
+				},
+			},
+			Selector: ls,
+			Type:     corev1.ServiceTypeClusterIP,
+		},
+	}
+
+	if err := ctrl.SetControllerReference(rc.Memcached, svc, rc.Scheme); err != nil {
+		return nil, err
+	}
+
+	return svc, nil
 }
 
 func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, error) {
@@ -238,6 +272,51 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentCreation() ReconcileRes
 	}
 
 	rc.memcachedDeployment = currentDeployment
+
+	return Continue()
+}
+
+func (rc *ReconciliationContext) CheckMemcachedServiceCreation() ReconcileResult {
+	if rc.memcachedDeployment == nil {
+		return Continue()
+	}
+
+	rc.ReqLogger.Info("[reconcile_memcached] CheckMemcachedServiceCreation")
+
+	currentService := &corev1.Service{}
+	err := rc.Client.Get(rc.Ctx,
+		types.NamespacedName{
+			Name:      rc.Request.Name,
+			Namespace: rc.Request.Namespace,
+		}, currentService)
+	if errors.IsNotFound(err) {
+		rc.ReqLogger.Info(
+			"Creating a new Service for",
+			"Memcached", rc.Memcached.Name)
+
+		if err := setOperatorProgressStatus(rc, cachev1.ProgressUpdating); err != nil {
+			return Error(err)
+		}
+
+		svc, err := rc.serviceForMemcached()
+		if err != nil {
+			return Error(err)
+		}
+
+		if err := rc.Client.Create(rc.Ctx, svc); err != nil {
+			return Error(err)
+		}
+
+		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.CreatedResource,
+			"Created Service %s", svc.Name)
+		return Continue()
+	} else if err != nil {
+		rc.ReqLogger.Error(
+			err,
+			"Could not locate Service for",
+			"Memcached", rc.Memcached.Name)
+		return Error(err)
+	}
 
 	return Continue()
 }

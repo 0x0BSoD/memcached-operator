@@ -26,6 +26,10 @@ func (rc *ReconciliationContext) ProcessReconcile() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
+	if recResult := rc.CheckMemcachedServiceCreation(); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	if recResult := rc.CheckMemcachedDeploymentScaling(); recResult.Completed() {
 		return recResult.Output()
 	}
