@@ -46,9 +46,9 @@ var _ webhook.Defaulter = &Memcached{}
 func (r *Memcached) Default() {
 	memcachedlog.Info("default", "name", r.Name)
 
-	// if r.Spec.Verbose == "" {
-	// 	r.Spec.Verbose = Enable
-	// }
+	if r.Spec.Verbose == "" {
+		r.Spec.Verbose = Enabled
+	}
 }
 
 // +kubebuilder:webhook:path=/validate-example-com-example-com-v1alpha1-memcached,mutating=false,failurePolicy=fail,sideEffects=None,groups=example.com.example.com,resources=memcacheds,verbs=create;update,versions=v1alpha1,name=vmemcached.kb.io,admissionReviewVersions=v1

@@ -16,6 +16,7 @@ type ProgressState string
 
 const (
 	DefaultPort                         = 11211
+	DefaultVerboseLevel   VerboseLevel  = Enabled
 	Finalizer                           = "cache.bsod.io/finalizer"
 	NoFinalizerAnnotation               = "cache.bsod.io/no-finalizer"
 	ProgressUpdating      ProgressState = "Updating"
@@ -35,6 +36,15 @@ type MemcachedSpec struct {
 	// Port defines the port that will be used to init the container with the image
 	ContainerPort int32 `json:"containerPort,omitempty"`
 
+	// Specifies the verbose level.
+	// Valid values are:
+	// - "Disabled": no verbose output at all;
+	// - "Enabled"(default): print errors and warnings;
+	// - "Moar": print client commands and responses;
+	// - "Extreme": print internal state transactions;
+	// +optional
+	Verbose VerboseLevel `json:"verbose,omitempty"`
+
 	// Parameter for setting image and tag for memcached pod
 	// default 'memcached:1.6.23-alpine'
 	// +optional
@@ -43,6 +53,24 @@ type MemcachedSpec struct {
 	// Resources defines CPU and memory for Memcached pods
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
+
+// VerboseLevel
+// +kubebuilder:validation:Enum=Disable;Enable;Moar;Extreme
+type VerboseLevel string
+
+const (
+	// Disabled no verbose output at all
+	Disabled VerboseLevel = "Disabled"
+
+	// Enabled print errors and warnings
+	Enabled VerboseLevel = "Enabled"
+
+	// Moar print client commands and responses
+	Moar VerboseLevel = "Moar"
+
+	// Extreme print internal state transactions
+	Extreme VerboseLevel = "Extreme"
+)
 
 // ===============================================================================
 // Condition

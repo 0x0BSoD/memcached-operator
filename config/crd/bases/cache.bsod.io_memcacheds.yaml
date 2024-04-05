@@ -121,6 +121,20 @@ spec:
                 format: int32
                 minimum: 1
                 type: integer
+              verbose:
+                description: |-
+                  Specifies the verbose level.
+                  Valid values are:
+                  - "Disabled": no verbose output at all;
+                  - "Enabled"(default): print errors and warnings;
+                  - "Moar": print client commands and responses;
+                  - "Extreme": print internal state transactions;
+                enum:
+                - Disable
+                - Enable
+                - Moar
+                - Extreme
+                type: string
             type: object
             x-kubernetes-preserve-unknown-fields: true
           status:

@@ -155,14 +155,7 @@ func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, e
 							ContainerPort: rc.Memcached.Spec.ContainerPort,
 							Name:          "memcached",
 						}},
-						Command: []string{
-							"memcached",
-							"--memory-limit=2048",
-							"--max-item-size=32m",
-							"modern",
-							"--verbose",
-							"--conn-limit=1024",
-						},
+						Command:   rc.buildMemcachedCommand(rc.Memcached.Spec.Verbose, 0),
 						Resources: rc.Memcached.Spec.Resources,
 					}},
 				},
@@ -274,6 +267,28 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentCreation() ReconcileRes
 	rc.memcachedDeployment = currentDeployment
 
 	return Continue()
+}
+
+func (rc *ReconciliationContext) buildMemcachedCommand(verboseLevel cachev1.VerboseLevel, memLimitKb int64) []string {
+	rc.ReqLogger.Info("[reconcile_memcached] buildMemcachedCommand")
+
+	cmd := []string{"memcached", "-o", "modern"}
+
+	// memLimit := (memLimitKb / 1024 / 1024) - 128
+	// cmd = append(cmd, fmt.Sprintf("--memory-limit=%v", memLimit))
+
+	switch verboseLevel {
+	case cachev1.Enabled:
+		cmd = append(cmd, "-v")
+	case cachev1.Moar:
+		cmd = append(cmd, "-vv")
+	case cachev1.Extreme:
+		cmd = append(cmd, "-vvv")
+	case cachev1.Disabled:
+		rc.ReqLogger.Info("a memcached instance logging is disabled")
+	}
+
+	return cmd
 }
 
 func (rc *ReconciliationContext) CheckMemcachedServiceCreation() ReconcileResult {
