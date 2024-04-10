@@ -56,7 +56,6 @@ func CreateReconciliationContext(
 
 	rc.ReqLogger.Info("[handler] CreateReconciliationContext")
 
-	// Fetch the datacenter resource
 	m := &cachev1.Memcached{}
 	if err := retrieveMemcaheds(rc, req, m); err != nil {
 		// rc.ReqLogger.Error(err, "error in retrieveMemcaheds")

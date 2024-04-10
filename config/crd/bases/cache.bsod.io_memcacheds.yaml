@@ -14,7 +14,11 @@ spec:
     singular: memcached
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.size
+      name: Replicas
+      type: integer
+    name: v1
     schema:
       openAPIV3Schema:
         description: |-
