@@ -10,14 +10,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-example-com-example-com-v1alpha1-memcached
+      path: /mutate-cache-bsod-io-v1-memcached
   failurePolicy: Fail
   name: mmemcached.kb.io
   rules:
   - apiGroups:
-    - example.com.example.com
+    - cache.bsod.io
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE
@@ -36,14 +36,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-example-com-example-com-v1alpha1-memcached
+      path: /validate-cache-bsod-io-v1-memcached
   failurePolicy: Fail
   name: vmemcached.kb.io
   rules:
   - apiGroups:
-    - example.com.example.com
+    - cache.bsod.io
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE

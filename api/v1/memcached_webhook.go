@@ -22,7 +22,7 @@ func (r *Memcached) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-example-com-example-com-v1alpha1-memcached,mutating=true,failurePolicy=fail,sideEffects=None,groups=example.com.example.com,resources=memcacheds,verbs=create;update,versions=v1alpha1,name=mmemcached.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-cache-bsod-io-v1-memcached,mutating=true,failurePolicy=fail,sideEffects=None,groups=cache.bsod.io,resources=memcacheds,verbs=create;update,versions=v1,name=mmemcached.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &Memcached{}
 
@@ -35,7 +35,7 @@ func (r *Memcached) Default() {
 	}
 }
 
-// +kubebuilder:webhook:path=/validate-example-com-example-com-v1alpha1-memcached,mutating=false,failurePolicy=fail,sideEffects=None,groups=example.com.example.com,resources=memcacheds,verbs=create;update,versions=v1alpha1,name=vmemcached.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-cache-bsod-io-v1-memcached,mutating=false,failurePolicy=fail,sideEffects=None,groups=cache.bsod.io,resources=memcacheds,verbs=create;update,versions=v1,name=vmemcached.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &Memcached{}
 
