@@ -129,7 +129,7 @@ build-installer: manifests generate kustomize ## Generate a consolidated YAML wi
 ##@ Deployment
 
 ifndef ignore-not-found
-  ignore-not-found = false
+	ignore-not-found = false
 endif
 
 .PHONY: install

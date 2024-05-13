@@ -36,7 +36,10 @@ func imageForMemcached(memcachedImage cachev1.DockerImage) (string, error) {
 		found = true
 	}
 	if !found {
-		return "", fmt.Errorf("Unable to find %s environment variable or parameter image.name not set", imageEnvVar)
+		return "", fmt.Errorf(
+			"Unable to find %s environment variable or parameter image.name not set",
+			imageEnvVar,
+		)
 	}
 	return image, nil
 }
@@ -94,6 +97,11 @@ func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, e
 	ls := labelsForMemcached(rc.Memcached.Name, image)
 	replicas := rc.Memcached.Spec.Size
 
+	memLimitKb, isTrue := rc.Memcached.Spec.Resources.Limits.Memory().AsInt64()
+	if !isTrue {
+		memLimitKb = 268435456
+	}
+
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rc.Memcached.Name,
@@ -118,7 +126,12 @@ func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, e
 											{
 												Key:      "kubernetes.io/arch",
 												Operator: "In",
-												Values:   []string{"amd64", "arm64", "ppc64le", "s390x"},
+												Values: []string{
+													"amd64",
+													"arm64",
+													"ppc64le",
+													"s390x",
+												},
 											},
 											{
 												Key:      "kubernetes.io/os",
@@ -155,7 +168,7 @@ func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, e
 							ContainerPort: rc.Memcached.Spec.ContainerPort,
 							Name:          "memcached",
 						}},
-						Command:   rc.buildMemcachedCommand(rc.Memcached.Spec.Verbose, 0),
+						Command:   rc.buildMemcachedCommand(rc.Memcached.Spec.Verbose, memLimitKb),
 						Resources: rc.Memcached.Spec.Resources,
 					}},
 				},
@@ -166,6 +179,12 @@ func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, e
 	if err := ctrl.SetControllerReference(rc.Memcached, dep, rc.Scheme); err != nil {
 		return nil, err
 	}
+
+	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+		MatchLabels: ls,
+	})
+
+	rc.Memcached.Status.Selector = selector.String()
 
 	return dep, nil
 }
@@ -269,13 +288,16 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentCreation() ReconcileRes
 	return Continue()
 }
 
-func (rc *ReconciliationContext) buildMemcachedCommand(verboseLevel cachev1.VerboseLevel, memLimitKb int64) []string {
+func (rc *ReconciliationContext) buildMemcachedCommand(
+	verboseLevel cachev1.VerboseLevel,
+	memLimitKb int64,
+) []string {
 	rc.ReqLogger.Info("[reconcile_memcached] buildMemcachedCommand")
 
 	cmd := []string{"memcached", "-o", "modern"}
 
-	// memLimit := (memLimitKb / 1024 / 1024) - 128
-	// cmd = append(cmd, fmt.Sprintf("--memory-limit=%v", memLimit))
+	memLimit := (memLimitKb / 1024 / 1024) - 128
+	cmd = append(cmd, fmt.Sprintf("--memory-limit=%v", memLimit))
 
 	switch verboseLevel {
 	case cachev1.Enabled:

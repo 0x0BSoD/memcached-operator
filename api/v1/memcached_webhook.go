@@ -85,7 +85,11 @@ func (r *Memcached) validateMemcachedMemoryLimit() *field.Error {
 	memLimitKb := r.Spec.Resources.Limits.Memory().Value()
 	if memLimitKb != 0 {
 		if memLimitKb < int64(268435456) {
-			return field.Invalid(field.NewPath("resources").Child("limits").Child("memory"), r.Spec.Resources.Limits.Memory().Value(), "must be more or equal to 256Mi")
+			return field.Invalid(
+				field.NewPath("resources").Child("limits").Child("memory"),
+				r.Spec.Resources.Limits.Memory().Value(),
+				"must be more or equal to 256Mi",
+			)
 		}
 	}
 	return nil
