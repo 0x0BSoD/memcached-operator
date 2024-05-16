@@ -13,8 +13,7 @@ spec:
   proxy:
     replicas: 1
     config:
-      servers:
-        - foobar:123
+      listen: 0.0.0.0:11211
 
   image:
     name: memcached

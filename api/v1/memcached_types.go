@@ -22,6 +22,8 @@ const (
 	ProgressUpdating      ProgressState = "Updating"
 	ProgressReady         ProgressState = "Ready"
 	MemcachedLabel                      = "cache.bsod.io/memcached"
+	MemcachedDefaultImage               = "memcached:1.6.23-alpine"
+	ProxyDefaultImage                   = "zlodey23/twemproxy:0.5.0"
 )
 
 // ===============================================================================
@@ -80,13 +82,19 @@ const (
 // Proxy struct for enabling and configure Twemproxy
 type Proxy struct {
 	// +optional
-	Enable bool `json:"enable"`
+	Enable bool `json:"enable,omitempty"`
 	// Size defines the number of Twemproxy instances
 	// +kubebuilder:validation:Minimum=1
 	// +optional
-	Replicas int64 `json:"replicas"`
+	Replicas int32 `json:"replicas,omitempty"`
+	// Parameter for setting image and tag for proxy pod
+	// default 'zlodey23/twemproxy:0.5.0'
 	// +optional
-	Config ProxyConfig `json:"config"`
+	Image DockerImage `json:"image,omitempty"`
+	// Resources defines CPU and memory for Proxy pods
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// +optional
+	Config ProxyConfig `json:"config,omitempty"`
 }
 
 // ProxyConfig struct used for describe parameters of Twemproxy

@@ -33,6 +33,7 @@ type ReconciliationContext struct {
 
 	memcachedPods       []*corev1.Pod
 	memcachedDeployment *appsv1.Deployment
+	proxyDeployment     *appsv1.Deployment
 }
 
 func CreateReconciliationContext(

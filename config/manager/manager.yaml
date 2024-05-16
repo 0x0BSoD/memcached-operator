@@ -50,7 +50,7 @@ spec:
             - name: MEMCACHED_IMAGE
               value: memcached:1.6.23-alpine
             - name: PROXY_IMAGE
-              value: anchorfree/twemproxy:v0.4.2-AF
+              value: zlodey23/twemproxy:0.5.0
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

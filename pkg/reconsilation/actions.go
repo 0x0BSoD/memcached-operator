@@ -1,6 +1,8 @@
 package reconsilation
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -22,22 +24,44 @@ func (rc *ReconciliationContext) ProcessReconcile() (reconcile.Result, error) {
 	}
 	rc.memcachedPods = PodPtrsFromPodList(podList)
 
+	// Memcached
+	fmt.Println("====> Memcached Deployment")
 	if recResult := rc.CheckMemcachedDeploymentCreation(); recResult.Completed() {
 		return recResult.Output()
 	}
 
+	fmt.Println("====> Memcached Service")
 	if recResult := rc.CheckMemcachedServiceCreation(); recResult.Completed() {
 		return recResult.Output()
 	}
 
+	fmt.Println("====> Memcached Deployment Scaling")
 	if recResult := rc.CheckMemcachedDeploymentScaling(); recResult.Completed() {
 		return recResult.Output()
 	}
 
+	// Proxy
+	fmt.Println("====> Proxy Deployment")
+	if recResult := rc.CheckProxyDeploymentCreation(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	fmt.Println("====> Proxy Service")
+	if recResult := rc.CheckProxyServiceCreation(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	fmt.Println("====> Proxy Deployment Scaling")
+	if recResult := rc.CheckProxyDeploymentScaling(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	// -------------------------------------------------------------------------
 	if err := setOperatorProgressStatus(rc, cachev1.ProgressReady); err != nil {
 		return Error(err).Output()
 	}
 
+	rc.ReqLogger.Info(podList.String())
 	rc.ReqLogger.Info("All Staff should now be reconciled.")
 
 	return DoneReconsile().Output()
@@ -58,13 +82,22 @@ func (rc *ReconciliationContext) ProcessDeletion() ReconcileResult {
 	}
 
 	origSize := rc.Memcached.Spec.Size
-	if rc.Memcached.Status.GetConditionStatus(cachev1.MemcacheDecommission) == corev1.ConditionTrue {
+	if rc.Memcached.Status.GetConditionStatus(
+		cachev1.MemcacheDecommission,
+	) == corev1.ConditionTrue {
 		rc.Memcached.Spec.Size = 0
 	}
 
-	if rc.Memcached.Status.GetConditionStatus(cachev1.MemcachedScalingDown) == corev1.ConditionTrue {
+	if rc.Memcached.Status.GetConditionStatus(
+		cachev1.MemcachedScalingDown,
+	) == corev1.ConditionTrue {
 		// ScalingDown is still happening
-		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.Decommissioning, "Memcached is decommissioning")
+		rc.Recorder.Eventf(
+			rc.Memcached,
+			corev1.EventTypeNormal,
+			events.Decommissioning,
+			"Memcached is decommissioning",
+		)
 		rc.ReqLogger.V(1).Info("Waiting for the decommission to complete first, before deleting")
 		return Continue()
 	}

@@ -3,6 +3,7 @@ package reconsilation
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -19,54 +20,62 @@ import (
 	"github.com/0x0BSoD/memcached-operator/pkg/events"
 )
 
-func imageForMemcached(memcachedImage cachev1.DockerImage) string {
+// imageForProxy
+// TODO: Repeated code
+func imageForProxy(proxyImage cachev1.DockerImage) string {
 	var (
 		found       bool
 		image       string
-		imageEnvVar = "MEMCACHED_IMAGE"
+		imageEnvVar = "PROXY_IMAGE"
 	)
-	if memcachedImage.Name == "" && memcachedImage.Tag == "" {
+	if proxyImage.Name == "" && proxyImage.Tag == "" {
 		image, found = os.LookupEnv(imageEnvVar)
 	} else {
-		if memcachedImage.Tag == "" {
-			image = fmt.Sprintf("%s:latest", memcachedImage.Name)
+		if proxyImage.Tag == "" {
+			image = fmt.Sprintf("%s:latest", proxyImage.Name)
 		} else {
-			image = fmt.Sprintf("%s:%s", memcachedImage.Name, memcachedImage.Tag)
+			image = fmt.Sprintf("%s:%s", proxyImage.Name, proxyImage.Tag)
 		}
 		found = true
 	}
 	if !found {
-		image = cachev1.MemcachedDefaultImage
+		image = cachev1.ProxyDefaultImage
 	}
 	return image
 }
 
-func labelsForMemcached(name, image string) map[string]string {
+func labelsForProxy(name, image string) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/name":       "Memcached",
-		"app.kubernetes.io/instance":   name,
+		"app.kubernetes.io/name":       "Memcachd-Proxy",
+		"app.kubernetes.io/instance":   fmt.Sprintf("%s-proxy", name),
 		"app.kubernetes.io/version":    strings.Split(image, ":")[1],
 		"app.kubernetes.io/part-of":    "memcached-operator",
 		"app.kubernetes.io/created-by": "controller-manager",
 	}
 }
 
-func (rc *ReconciliationContext) serviceForMemcached() (*corev1.Service, error) {
-	rc.ReqLogger.Info("[reconcile_memcached] serviceForMemcached")
+func (rc *ReconciliationContext) serviceForProxy() (*corev1.Service, error) {
+	rc.ReqLogger.Info("[reconcile_proxy] serviceForProxy")
 
-	image := imageForMemcached(rc.Memcached.Spec.Image)
-	ls := labelsForMemcached(rc.Memcached.Name, image)
+	image := imageForProxy(rc.Memcached.Spec.Proxy.Image)
+	ls := labelsForProxy(rc.Memcached.Name, image)
+
+	listenPort, _ := strconv.ParseInt(
+		strings.Split(rc.Memcached.Spec.Proxy.Config.Listen, ":")[1],
+		10,
+		32,
+	)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      rc.Memcached.Name,
+			Name:      fmt.Sprintf("%s-proxy", rc.Memcached.Name),
 			Namespace: rc.Memcached.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Name: "memcached",
-					Port: rc.Memcached.Spec.ContainerPort,
+					Name: "proxy",
+					Port: int32(listenPort),
 				},
 			},
 			Selector: ls,
@@ -81,21 +90,22 @@ func (rc *ReconciliationContext) serviceForMemcached() (*corev1.Service, error) 
 	return svc, nil
 }
 
-func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, error) {
-	rc.ReqLogger.Info("[reconcile_memcached] deploymentForMemcached")
+func (rc *ReconciliationContext) deploymentForProxy() (*appsv1.Deployment, error) {
+	rc.ReqLogger.Info("[reconcile_proxy] deploymentForProxy")
 
-	image := imageForMemcached(rc.Memcached.Spec.Image)
-	ls := labelsForMemcached(rc.Memcached.Name, image)
-	replicas := rc.Memcached.Spec.Size
+	image := imageForProxy(rc.Memcached.Spec.Proxy.Image)
+	ls := labelsForProxy(rc.Memcached.Name, image)
+	replicas := rc.Memcached.Spec.Proxy.Replicas
 
-	memLimitKb, isTrue := rc.Memcached.Spec.Resources.Limits.Memory().AsInt64()
-	if !isTrue {
-		memLimitKb = 268435456
-	}
+	listenPort, _ := strconv.ParseInt(
+		strings.Split(rc.Memcached.Spec.Proxy.Config.Listen, ":")[1],
+		10,
+		32,
+	)
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      rc.Memcached.Name,
+			Name:      fmt.Sprintf("%s-proxy", rc.Memcached.Name),
 			Namespace: rc.Memcached.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -143,7 +153,7 @@ func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, e
 					},
 					Containers: []corev1.Container{{
 						Image:           image,
-						Name:            "memcached",
+						Name:            "proxy",
 						ImagePullPolicy: corev1.PullIfNotPresent,
 						SecurityContext: &corev1.SecurityContext{
 							RunAsNonRoot:             &[]bool{true}[0],
@@ -156,11 +166,17 @@ func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, e
 							},
 						},
 						Ports: []corev1.ContainerPort{{
-							ContainerPort: rc.Memcached.Spec.ContainerPort,
-							Name:          "memcached",
+							ContainerPort: int32(listenPort),
+							Name:          "proxy",
 						}},
-						Command:   rc.buildMemcachedCommand(rc.Memcached.Spec.Verbose, memLimitKb),
-						Resources: rc.Memcached.Spec.Resources,
+						Command: []string{
+							"nutcracker",
+							"-c",
+							"/etc/config/twem-config.yaml",
+							"-v",
+							"7",
+						},
+						Resources: rc.Memcached.Spec.Proxy.Resources,
 					}},
 				},
 			},
@@ -171,16 +187,10 @@ func (rc *ReconciliationContext) deploymentForMemcached() (*appsv1.Deployment, e
 		return nil, err
 	}
 
-	selector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
-		MatchLabels: ls,
-	})
-
-	rc.Memcached.Status.Selector = selector.String()
-
 	return dep, nil
 }
 
-func (rc *ReconciliationContext) CheckMemcachedDeploymentScaling() ReconcileResult {
+func (rc *ReconciliationContext) CheckProxyDeploymentScaling() ReconcileResult {
 	logger := rc.ReqLogger
 	m := rc.Memcached
 	dep := rc.memcachedDeployment
@@ -189,7 +199,7 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentScaling() ReconcileResu
 		return Continue()
 	}
 
-	logger.Info("[reconcile_memcached] CheckMemcachedDeploymentScaling")
+	logger.Info("[reconcile_proxy] CheckProxyDeploymentScaling")
 
 	desiredReplicas := rc.Memcached.Spec.Size
 	currentReplicas := *dep.Spec.Replicas
@@ -199,23 +209,23 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentScaling() ReconcileResu
 
 		err := rc.Client.Status().Patch(rc.Ctx, m, mPatch)
 		if err != nil {
-			logger.Error(err, "error patching memcached for scaling")
+			logger.Error(err, "error patching proxy for scaling")
 			return Error(err)
 		}
 
 		rc.ReqLogger.Info(
-			"Need to update the memcached's replicas",
-			"Memcached", m.Name,
+			"Need to update the proxy's replicas",
+			"Memcached-Proxy", m.Name,
 			"currentReplicas", currentReplicas,
 			"desiredReplicas", desiredReplicas,
 		)
 
 		if currentReplicas > desiredReplicas {
 			rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.ScalingDown,
-				"Scaling down %s", m.Name)
+				"Scaling Down %s", m.Name)
 		} else if currentReplicas < desiredReplicas {
 			rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.ScalingUp,
-				"Scaling up %s", m.Name)
+				"Scaling Up %s", m.Name)
 		}
 
 		if err := setOperatorProgressStatus(rc, cachev1.ProgressUpdating); err != nil {
@@ -232,27 +242,27 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentScaling() ReconcileResu
 	return Continue()
 }
 
-func (rc *ReconciliationContext) CheckMemcachedDeploymentCreation() ReconcileResult {
-	rc.ReqLogger.Info("[reconcile_memcached] CheckMemcachedDeploymentCreation")
+func (rc *ReconciliationContext) CheckProxyDeploymentCreation() ReconcileResult {
+	rc.ReqLogger.Info("[reconcile_proxy] CheckProxyDeploymentCreation")
 
 	// Check if the desired Deployment already exists
 	currentDeployment := &appsv1.Deployment{}
 	err := rc.Client.Get(rc.Ctx,
 		types.NamespacedName{
-			Name:      rc.Request.Name,
+			Name:      fmt.Sprintf("%s-proxy", rc.Memcached.Name),
 			Namespace: rc.Memcached.Namespace,
 		}, currentDeployment)
 
 	if errors.IsNotFound(err) {
 		rc.ReqLogger.Info(
 			"Creating a new Deployment for",
-			"Memcached", rc.Memcached.Name)
+			"Memcached-Proxy", rc.Memcached.Name)
 
 		if err := setOperatorProgressStatus(rc, cachev1.ProgressUpdating); err != nil {
 			return Error(err)
 		}
 
-		dep, err := rc.deploymentForMemcached()
+		dep, err := rc.deploymentForProxy()
 		if err != nil {
 			return Error(err)
 		}
@@ -261,7 +271,7 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentCreation() ReconcileRes
 			return Error(err)
 		}
 
-		rc.memcachedDeployment = dep
+		rc.proxyDeployment = dep
 
 		rc.Recorder.Eventf(rc.Memcached, corev1.EventTypeNormal, events.CreatedResource,
 			"Created Deployment %s", dep.Name)
@@ -270,63 +280,38 @@ func (rc *ReconciliationContext) CheckMemcachedDeploymentCreation() ReconcileRes
 		rc.ReqLogger.Error(
 			err,
 			"Could not locate Deployment for",
-			"Memcached", rc.Memcached.Name)
+			"Memcached-Proxy", rc.Memcached.Name)
 		return Error(err)
 	}
 
-	rc.memcachedDeployment = currentDeployment
+	rc.proxyDeployment = currentDeployment
 
 	return Continue()
 }
 
-func (rc *ReconciliationContext) buildMemcachedCommand(
-	verboseLevel cachev1.VerboseLevel,
-	memLimitKb int64,
-) []string {
-	rc.ReqLogger.Info("[reconcile_memcached] buildMemcachedCommand")
-
-	cmd := []string{"memcached", "-o", "modern"}
-
-	memLimit := (memLimitKb / 1024 / 1024) - 128
-	cmd = append(cmd, fmt.Sprintf("--memory-limit=%v", memLimit))
-
-	switch verboseLevel {
-	case cachev1.Enabled:
-		cmd = append(cmd, "-v")
-	case cachev1.Moar:
-		cmd = append(cmd, "-vv")
-	case cachev1.Extreme:
-		cmd = append(cmd, "-vvv")
-	case cachev1.Disabled:
-		rc.ReqLogger.Info("a memcached instance logging is disabled")
-	}
-
-	return cmd
-}
-
-func (rc *ReconciliationContext) CheckMemcachedServiceCreation() ReconcileResult {
-	if rc.memcachedDeployment == nil {
+func (rc *ReconciliationContext) CheckProxyServiceCreation() ReconcileResult {
+	if rc.proxyDeployment == nil {
 		return Continue()
 	}
 
-	rc.ReqLogger.Info("[reconcile_memcached] CheckMemcachedServiceCreation")
+	rc.ReqLogger.Info("[reconcile_proxy] CheckProxyServiceCreation")
 
 	currentService := &corev1.Service{}
 	err := rc.Client.Get(rc.Ctx,
 		types.NamespacedName{
-			Name:      rc.Request.Name,
+			Name:      fmt.Sprintf("%s-proxy", rc.Memcached.Name),
 			Namespace: rc.Request.Namespace,
 		}, currentService)
 	if errors.IsNotFound(err) {
 		rc.ReqLogger.Info(
 			"Creating a new Service for",
-			"Memcached", rc.Memcached.Name)
+			"Memcached-Proxy", rc.Memcached.Name)
 
 		if err := setOperatorProgressStatus(rc, cachev1.ProgressUpdating); err != nil {
 			return Error(err)
 		}
 
-		svc, err := rc.serviceForMemcached()
+		svc, err := rc.serviceForProxy()
 		if err != nil {
 			return Error(err)
 		}
@@ -342,7 +327,7 @@ func (rc *ReconciliationContext) CheckMemcachedServiceCreation() ReconcileResult
 		rc.ReqLogger.Error(
 			err,
 			"Could not locate Service for",
-			"Memcached", rc.Memcached.Name)
+			"Memcached-Proxy", rc.Memcached.Name)
 		return Error(err)
 	}
 
